@@ -12,7 +12,7 @@ import (
 func InitDB(conf config.Config) *gorm.DB {
 
 	connectionString := fmt.Sprintf(
-		"%s:%s@tcp(%s:%s)/%s?charset=utf8",
+		"%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=true",
 		conf.DB_USERNAME,
 		conf.DB_PASSWORD,
 		conf.DB_HOST,
@@ -25,6 +25,15 @@ func InitDB(conf config.Config) *gorm.DB {
 		fmt.Println("error opening connection : ", err)
 	}
 
-	DB.AutoMigrate(&model.User{})
+	err = DB.SetupJoinTable(&model.Recipe{}, "Ingredients", &model.RecipeIngredient{})
+	if err != nil {
+		fmt.Print("error setting up join table : ", err)
+	}
+
+	err = DB.AutoMigrate(&model.User{}, &model.Recipe{}, &model.Tag{}, &model.Ingredient{}, &model.Comment{})
+	if err != nil {
+		fmt.Print("error migrating table : ", err)
+	}
+
 	return DB
 }
