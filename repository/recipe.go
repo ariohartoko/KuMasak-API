@@ -157,6 +157,7 @@ func (r *repoRecipe) CreateRecipe(recipe model.Recipe) (id uint, err error) {
 
 //Update recipe
 func (r *repoRecipe) UpdateRecipe(id uint, recipe model.Recipe) error {
+	recipe.ID = id
 	temp := recipe
 	res := r.DB.Debug().Omit("TotalPrice", "Comments", "Bookmarks", "Ingredients", "Tags", "ViewCount").Save(&recipe)
 	if res.RowsAffected < 1 {
@@ -164,11 +165,12 @@ func (r *repoRecipe) UpdateRecipe(id uint, recipe model.Recipe) error {
 	}
 
 	for _, v := range temp.Ingredients {
-		r.DB.Raw("INSERT INTO recipe_ingredients (recipe_id, ingredient_id, quantity) VALUES ( ? , ? , ? )", recipe.ID, v.ID, v.Quantity)
+		r.DB.Exec("INSERT INTO recipe_ingredients (recipe_id, ingredient_id) VALUES ( ? , ? )", recipe.ID, v.ID)
+		r.DB.Exec("INSERT INTO recipe_ingredients (quantity) VALUES ( ? ) WHERE recipe_id = ? AND ingredient_id = ?", v.Quantity, recipe.ID, v.ID)
 	}
 
 	for _, v := range temp.Tags {
-		r.DB.Raw("INSERT INTO recipe_tags (recipe_id, tag_id) VALUES ( ? , ? )", recipe.ID, v.ID)
+		r.DB.Exec("INSERT INTO recipe_tags (recipe_id, tag_id) VALUES ( ? , ? )", recipe.ID, v.ID)
 	}
 
 	return nil
@@ -177,16 +179,17 @@ func (r *repoRecipe) UpdateRecipe(id uint, recipe model.Recipe) error {
 //Delete recipe from database
 func (r *repoRecipe) DeleteRecipe(id uint) error {
 	recipe := model.Recipe{}
-	res := r.DB.Where("id = ?", id).Find(&recipe)
+	recipe.ID = id
+	res := r.DB.Find(&recipe)
 	if res.RowsAffected < 1 {
 		return fmt.Errorf("recipe not found")
 	}
 
-	r.DB.Raw("DELETE FROM bookmarks WHERE recipe_id = ?", id)
-	r.DB.Raw("DELETE FROM comments WHERE recipe_id = ?", id)
-	r.DB.Raw("DELETE FROM recipe_tags WHERE recipe_id = ?", id)
-	r.DB.Raw("DELETE FROM recipe_ingredients WHERE recipe_id = ?", id)
-	r.DB.Raw("DELETE FROM recipes WHERE id = ?", id)
+	r.DB.Exec("DELETE FROM bookmarks WHERE recipe_id = ?", id)
+	r.DB.Exec("DELETE FROM comments WHERE recipe_id = ?", id)
+	r.DB.Exec("DELETE FROM recipe_tags WHERE recipe_id = ?", id)
+	r.DB.Exec("DELETE FROM recipe_ingredients WHERE recipe_id = ?", id)
+	r.DB.Exec("DELETE FROM recipes WHERE id = ?", id)
 
 	return nil
 }
